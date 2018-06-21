@@ -3,6 +3,7 @@ package com.brzhang.chengyu;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -18,7 +19,8 @@ import io.reactivex.schedulers.Schedulers;
 
 public class MainActivity extends AppCompatActivity {
 
-    TextView btn, text;
+    TextView text;
+    FloatingActionButton btn;
 
     RxPermissions rxPermissions;
 

@@ -12,8 +12,6 @@ import com.tencent.aai.listener.AudioRecognizeResultListener;
 import com.tencent.aai.model.AudioRecognizeRequest;
 import com.tencent.aai.model.AudioRecognizeResult;
 
-import java.util.concurrent.Future;
-
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
 import io.reactivex.FlowableEmitter;
@@ -61,12 +59,12 @@ public class AAIHelper {
                     aaiClient.startAudioRecognize(audioRecognizeRequest, new AudioRecognizeResultListener() {
                         @Override
                         public void onSliceSuccess(AudioRecognizeRequest audioRecognizeRequest, AudioRecognizeResult audioRecognizeResult, int i) {
-
+                            //do noting
                         }
 
                         @Override
                         public void onSegmentSuccess(AudioRecognizeRequest audioRecognizeRequest, AudioRecognizeResult audioRecognizeResult, int i) {
-
+                            //do noting
                         }
 
                         @Override
