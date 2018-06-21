@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.TextView;
 
@@ -24,6 +25,8 @@ public class MainActivity extends AppCompatActivity {
 
     RxPermissions rxPermissions;
 
+    private boolean isAAIstarted;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -32,10 +35,27 @@ public class MainActivity extends AppCompatActivity {
         btn = findViewById(R.id.btn);
         text = findViewById(R.id.text);
 
-        btn.setOnClickListener(new View.OnClickListener() {
+        btn.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
-            public void onClick(View v) {
+            public boolean onLongClick(View v) {
                 textRecognition();
+                return true;
+            }
+        });
+        btn.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View pView, MotionEvent pEvent) {
+                pView.onTouchEvent(pEvent);
+                // We're only interested in when the button is released.
+                if (pEvent.getAction() == MotionEvent.ACTION_UP) {
+                    // We're only interested in anything if our speak button is currently pressed.
+                    // Do something when the button is released.
+                    if (isAAIstarted) {
+                        stopAAI();
+                    }
+
+                }
+                return false;
             }
         });
 
@@ -43,9 +63,29 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @SuppressLint("CheckResult")
+    private void stopAAI() {
+        try {
+            AAIHelper.newInstance().stopAAI().subscribe(new Consumer<Boolean>() {
+                @Override
+                public void accept(Boolean aBoolean) {
+                    if (aBoolean) {
+                        isAAIstarted = false;
+                    }
+                }
+            });
+        } catch (ClientException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @SuppressLint("CheckResult")
     private void textRecognition() {
+        if (isAAIstarted) {
+            return;
+        }
+        isAAIstarted = true;
         rxPermissions
-                .requestEach(Manifest.permission.READ_PHONE_STATE)
+                .requestEachCombined(Manifest.permission.READ_PHONE_STATE, Manifest.permission.RECORD_AUDIO)
                 .subscribe(new Consumer<Permission>() {
                     @Override
                     public void accept(Permission permission) throws Exception {
@@ -58,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
                 }, new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable throwable) {
+                        isAAIstarted = false;
                         Log.e("MainActivity", "accept() called with: throwable = [" + throwable + "]");
                     }
                 });
