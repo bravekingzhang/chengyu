@@ -1,39 +1,56 @@
-apply plugin: 'com.android.application'
-
+apply plugin: 'com.android.library'
+apply plugin: 'maven'
 android {
     compileSdkVersion 27
+
+
+
     defaultConfig {
-        applicationId "com.brzhang.chengyu"
-        minSdkVersion 22
+        minSdkVersion 18
         targetSdkVersion 27
         versionCode 1
         versionName "1.0"
+
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
     }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
-        debug {
-
-        }
     }
+
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation project(":voicetotextview")
+
+    testImplementation 'junit:junit:4.12'
     implementation 'com.android.support:design:27.1.1'
     implementation 'com.android.support:appcompat-v7:27.1.1'
     implementation 'com.android.support.constraint:constraint-layout:1.1.2'
     testImplementation 'junit:junit:4.12'
     implementation 'com.tencent.aai:aai:2.1.2:@aar'
     implementation 'com.squareup.okhttp3:okhttp:3.9.0'
+    implementation 'org.slf4j:slf4j-android:1.7.21'
     implementation 'io.reactivex.rxjava2:rxjava:2.1.9'
     implementation 'io.reactivex.rxjava2:rxandroid:2.0.2'
     implementation 'com.tbruyelle.rxpermissions2:rxpermissions:0.9.5@aar'
-    implementation 'com.jaredrummler:android-animations:1.0.0'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: 'http://maven.oa.com/nexus/content/repositories/thirdparty-snapshots'){
+                authentication(userName: 'rdm', password: 'rdm')
+                pom.groupId = 'com.tencent.tip'
+                pom.artifactId = 'voice_to_text_view'
+                pom.version = '1.0.1-SNAPSHOT'
+            }
+        }
+    }
 }
