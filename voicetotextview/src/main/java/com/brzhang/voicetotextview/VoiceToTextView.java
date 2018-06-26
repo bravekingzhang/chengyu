@@ -7,6 +7,8 @@ import android.content.Context;
 import android.graphics.Point;
 import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.FloatingActionButton;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.TextView;
@@ -22,19 +24,26 @@ import io.reactivex.schedulers.Schedulers;
 
 public class VoiceToTextView extends ConstraintLayout {
 
-    private RxPermissions rxPermissions;
-    private boolean isAAIstarted;
-    private TextView text;
+    private VoiceToTextListener  listener;
+    private RxPermissions        rxPermissions;
+    private boolean              isAAIstarted;
+    private TextView             text;
     private FloatingActionButton btn;
-    private Context mContext;
+    private Context              mContext;
 
     private int appid;
     private int projectid;
-    private String secretId = "";
+    private String secretId  = "";
     private String secretKey = "";
+    private boolean mAAIHelperAvailable;
 
     public VoiceToTextView setActivity(Activity activity) {
         rxPermissions = new RxPermissions(activity);
+        return this;
+    }
+
+    public VoiceToTextView setListener(VoiceToTextListener listener) {
+        this.listener = listener;
         return this;
     }
 
@@ -63,8 +72,23 @@ public class VoiceToTextView extends ConstraintLayout {
      *
      * @throws ClientException
      */
-    public void build() throws ClientException {
-        AAIHelper.getInstance().init(mContext, this.appid, projectid, secretId, secretKey);
+    @SuppressLint("CheckResult")
+    public void build() {
+        rxPermissions.requestEachCombined(Manifest.permission.READ_PHONE_STATE, Manifest.permission.RECORD_AUDIO, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                .subscribe(new Consumer<Permission>() {
+                    @Override
+                    public void accept(Permission permission) throws Exception {
+                        if (permission.granted) {
+                            mAAIHelperAvailable = AAIHelper.getInstance().init(mContext, appid, projectid, secretId, secretKey);
+                        }
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+
+                    }
+                });
+
     }
 
     public VoiceToTextView(Context context) {
@@ -88,8 +112,10 @@ public class VoiceToTextView extends ConstraintLayout {
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showASrText();
-                textRecognition();
+                if (mAAIHelperAvailable) {
+                    showASrText();
+                    textRecognition();
+                }
             }
         });
         text.setOnClickListener(new View.OnClickListener() {
@@ -97,6 +123,24 @@ public class VoiceToTextView extends ConstraintLayout {
             public void onClick(View v) {
                 hideAsrText();
                 stopAAI();
+            }
+        });
+        text.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (listener != null) {
+                    listener.onText(s.toString());
+                }
             }
         });
     }
@@ -107,22 +151,7 @@ public class VoiceToTextView extends ConstraintLayout {
             return;
         }
         isAAIstarted = true;
-        rxPermissions.requestEachCombined(Manifest.permission.READ_PHONE_STATE, Manifest.permission.RECORD_AUDIO, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                .subscribe(new Consumer<Permission>() {
-                    @Override
-                    public void accept(Permission permission) throws Exception {
-                        if (permission.granted) {
-                            startAAI();
-                        } else {
-                        }
-                    }
-                }, new Consumer<Throwable>() {
-                    @Override
-                    public void accept(Throwable throwable) {
-                        isAAIstarted = false;
-                        hideAsrText();
-                    }
-                });
+        startAAI();
     }
 
     /**
@@ -183,4 +212,5 @@ public class VoiceToTextView extends ConstraintLayout {
     private void showToast(String msg) {
         Toast.makeText(mContext, msg, Toast.LENGTH_LONG).show();
     }
+
 }

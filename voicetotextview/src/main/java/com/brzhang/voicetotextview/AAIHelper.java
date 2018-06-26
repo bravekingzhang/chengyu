@@ -30,7 +30,7 @@ public class AAIHelper {
     private AAIClient aaiClient;
 
     // 初始化语音识别请求。
-    private AudioRecognizeRequest audioRecognizeRequest;
+    private AudioRecognizeRequest       audioRecognizeRequest;
     private AudioRecognizeConfiguration audioRecognizeConfiguration;
 
     private AAIHelper() {
@@ -45,12 +45,17 @@ public class AAIHelper {
      * @param projectid
      * @param secretId
      * @param secretKey
-     * @throws ClientException
+     * @return true 初始化成功，false 失败
      */
-    public void init(Context context, int appid, int projectid, String secretId, String secretKey) throws ClientException {
+    public boolean init(Context context, int appid, int projectid, String secretId, String secretKey) {
         // 为了方便用户测试，sdk提供了本地签名，但是为了secretKey的安全性，正式环境下请自行在第三方服务器上生成签名。
         AbsCredentialProvider credentialProvider = new LocalCredentialProvider(secretKey);
-        aaiClient = new AAIClient(context, appid, projectid, secretId, credentialProvider);
+        try {
+            aaiClient = new AAIClient(context, appid, projectid, secretId, credentialProvider);
+        } catch ( ClientException e ) {
+            e.printStackTrace();
+            return false;
+        }
         audioRecognizeRequest = new AudioRecognizeRequest.Builder()
                 .pcmAudioDataSource(new AudioRecordDataSource()) // 设置语音源为麦克风输入
                 .template(new AudioRecognizeTemplate(1, 0, 0)) // 设置自定义模板
@@ -66,6 +71,7 @@ public class AAIHelper {
                 .minVolumeCallbackTime(80) // 音量回调时间
                 .sensitive(2)
                 .build();
+        return true;
     }
 
     public static AAIHelper getInstance() {
@@ -126,6 +132,9 @@ public class AAIHelper {
 
                         @Override
                         public void onFailure(AudioRecognizeRequest audioRecognizeRequest, ClientException clientException, ServerException serverException) {
+                            if (emitter.isCancelled()){
+                                return;
+                            }
                             if (clientException != null) {
                                 emitter.onError(clientException);
                             } else if (serverException != null) {

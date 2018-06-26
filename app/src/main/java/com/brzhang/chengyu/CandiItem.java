@@ -1,10 +1,12 @@
 package com.brzhang.chengyu;
 
 public class CandiItem {
-    private String item;
+    private int     index;
+    private String  item;
     private boolean selected;
 
-    public CandiItem(String item) {
+    public CandiItem(int index, String item) {
+        this.index = index;
         this.item = item;
     }
 
@@ -18,5 +20,9 @@ public class CandiItem {
 
     public String getItem() {
         return item;
+    }
+
+    public int getIndex() {
+        return index;
     }
 }
