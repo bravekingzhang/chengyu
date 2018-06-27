@@ -1,8 +1,11 @@
-package com.brzhang.chengyu;
+package com.brzhang.chengyu.model;
 
+/**
+ * adapter item
+ */
 public class CandiItem {
-    private int     index;
-    private String  item;
+    private int index;
+    private String item;
     private boolean selected;
 
     public CandiItem(int index, String item) {

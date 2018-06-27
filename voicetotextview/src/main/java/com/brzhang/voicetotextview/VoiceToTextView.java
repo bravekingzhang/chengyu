@@ -11,6 +11,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,16 +25,17 @@ import io.reactivex.schedulers.Schedulers;
 
 public class VoiceToTextView extends ConstraintLayout {
 
-    private VoiceToTextListener  listener;
-    private RxPermissions        rxPermissions;
-    private boolean              isAAIstarted;
-    private TextView             text;
+    private VoiceToTextListener listener;
+    private RxPermissions rxPermissions;
+    private boolean isAAIstarted;
+    private TextView text;
     private FloatingActionButton btn;
-    private Context              mContext;
+    private Context mContext;
+    private ProgressBar progressBar;
 
     private int appid;
     private int projectid;
-    private String secretId  = "";
+    private String secretId = "";
     private String secretKey = "";
     private boolean mAAIHelperAvailable;
 
@@ -109,6 +111,7 @@ public class VoiceToTextView extends ConstraintLayout {
         View rootView = View.inflate(context, R.layout.voice_to_text_view_layout, this);
         text = rootView.findViewById(R.id.text);
         btn = rootView.findViewById(R.id.btn);
+        progressBar = rootView.findViewById(R.id.progress);
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -178,14 +181,23 @@ public class VoiceToTextView extends ConstraintLayout {
                 .startAAI()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<String>() {
+                .subscribe(new Consumer<VoiceResult>() {
                     @Override
-                    public void accept(String s) {
-                        text.setText(s);
+                    public void accept(VoiceResult result) {
+                        if (result.stateRecordOn) {
+                            progressBar.setVisibility(VISIBLE);
+                            text.setText(result.text);
+                        } else {
+                            progressBar.setVisibility(GONE);
+                            stopAAI();
+                            hideAsrText();
+                        }
                     }
                 }, new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable throwable) {
+                        progressBar.setVisibility(GONE);
+                        hideAsrText();
                         stopAAI();
                         showToast(throwable.toString());
                     }

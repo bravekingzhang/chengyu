@@ -3,6 +3,7 @@ package com.brzhang.voicetotextview;
 import android.content.Context;
 import android.support.annotation.WorkerThread;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.tencent.aai.AAIClient;
 import com.tencent.aai.audio.data.AudioRecordDataSource;
@@ -18,6 +19,8 @@ import com.tencent.aai.model.AudioRecognizeResult;
 import com.tencent.aai.model.type.AudioRecognizeConfiguration;
 import com.tencent.aai.model.type.AudioRecognizeTemplate;
 
+import java.util.concurrent.TimeUnit;
+
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
 import io.reactivex.FlowableEmitter;
@@ -30,7 +33,7 @@ public class AAIHelper {
     private AAIClient aaiClient;
 
     // 初始化语音识别请求。
-    private AudioRecognizeRequest       audioRecognizeRequest;
+    private AudioRecognizeRequest audioRecognizeRequest;
     private AudioRecognizeConfiguration audioRecognizeConfiguration;
 
     private AAIHelper() {
@@ -52,7 +55,7 @@ public class AAIHelper {
         AbsCredentialProvider credentialProvider = new LocalCredentialProvider(secretKey);
         try {
             aaiClient = new AAIClient(context, appid, projectid, secretId, credentialProvider);
-        } catch ( ClientException e ) {
+        } catch (ClientException e) {
             e.printStackTrace();
             return false;
         }
@@ -95,22 +98,22 @@ public class AAIHelper {
     }
 
     @WorkerThread
-    public Flowable<String> startAAI() {
+    public Flowable<VoiceResult> startAAI() {
         if (aaiClient != null) {
             if (!aaiClient.isAudioRecognizeIdle()) {
                 return Flowable.empty();
             }
         }
-        return Flowable.create(new FlowableOnSubscribe<String>() {
+        return Flowable.create(new FlowableOnSubscribe<VoiceResult>() {
             @Override
-            public void subscribe(final FlowableEmitter<String> emitter) {
+            public void subscribe(final FlowableEmitter<VoiceResult> emitter) {
                 if (aaiClient != null) {
                     aaiClient.startAudioRecognize(audioRecognizeRequest, new AudioRecognizeResultListener() {
                         @Override
                         public void onSliceSuccess(AudioRecognizeRequest audioRecognizeRequest, AudioRecognizeResult resultText, int i) {
                             if (!TextUtils.isEmpty(resultText.getText())) {
                                 //语音分片的语音识别结果回调接口
-                                emitter.onNext(resultText.getText());
+                                emitter.onNext(new VoiceResult(true, resultText.getText()));
                             }
                         }
 
@@ -118,7 +121,7 @@ public class AAIHelper {
                         public void onSegmentSuccess(AudioRecognizeRequest audioRecognizeRequest, AudioRecognizeResult audioRecognizeResult, int i) {
                             if (!TextUtils.isEmpty(audioRecognizeResult.getText())) {
                                 //语音流的语音识别结果回调接口
-                                emitter.onNext(audioRecognizeResult.getText());
+                                emitter.onNext(new VoiceResult(true, audioRecognizeResult.getText()));
                             }
                         }
 
@@ -126,13 +129,13 @@ public class AAIHelper {
                         public void onSuccess(AudioRecognizeRequest audioRecognizeRequest, String s) {
                             if (!TextUtils.isEmpty(s)) {
                                 //返回所有的识别结果
-                                emitter.onNext(s);
+                                emitter.onNext(new VoiceResult(true, s));
                             }
                         }
 
                         @Override
                         public void onFailure(AudioRecognizeRequest audioRecognizeRequest, ClientException clientException, ServerException serverException) {
-                            if (emitter.isCancelled()){
+                            if (emitter.isCancelled()) {
                                 return;
                             }
                             if (clientException != null) {
@@ -148,11 +151,16 @@ public class AAIHelper {
                         @Override
                         public void onStartRecord(AudioRecognizeRequest request) {
                             // 开始录音
+                            Log.e("AAIHelper", "onStartRecord() called with: request = [" + request + "]");
+                            emitter.onNext(new VoiceResult(true, ""));
                         }
 
                         @Override
                         public void onStopRecord(AudioRecognizeRequest request) {
                             // 结束录音
+                            Log.e("AAIHelper", "onStopRecord() called with: request = [" + request + "]");
+                            emitter.onNext(new VoiceResult(false, ""));
+//                            emitter.onComplete();
                         }
 
                         @Override
@@ -182,12 +190,14 @@ public class AAIHelper {
                     }, new AudioRecognizeTimeoutListener() {
                         @Override
                         public void onFirstVoiceFlowTimeout(AudioRecognizeRequest audioRecognizeRequest) {
-                            emitter.onComplete();
+//                            emitter.onNext(new VoiceResult(false, ""));
+//                            emitter.onComplete();
                         }
 
                         @Override
                         public void onNextVoiceFlowTimeout(AudioRecognizeRequest audioRecognizeRequest) {
-                            emitter.onComplete();
+//                            emitter.onNext(new VoiceResult(false, ""));
+//                            emitter.onComplete();
                         }
                     }, audioRecognizeConfiguration);
                 } else {
@@ -195,7 +205,9 @@ public class AAIHelper {
                 }
 
             }
-        }, BackpressureStrategy.BUFFER);
+        }, BackpressureStrategy.BUFFER)
+                //这里的发送速度太快了，优化下
+                .throttleLast(500, TimeUnit.MILLISECONDS);
 
     }
 

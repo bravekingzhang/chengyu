@@ -1,6 +1,8 @@
 package com.brzhang.chengyu;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.DialogFragment;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -8,20 +10,44 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatTextView;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.Toast;
 
+import com.brzhang.chengyu.helper.DBHelper;
+import com.brzhang.chengyu.helper.DownLoadHelper;
+import com.brzhang.chengyu.helper.PrefHelper;
+import com.brzhang.chengyu.model.CandiItem;
+import com.brzhang.chengyu.model.Subject;
 import com.brzhang.voicetotextview.VoiceToTextListener;
 import com.brzhang.voicetotextview.VoiceToTextView;
+import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 
-public class MainActivity extends AppCompatActivity {
+import eu.inloop.localmessagemanager.LocalMessage;
+import eu.inloop.localmessagemanager.LocalMessageCallback;
+import eu.inloop.localmessagemanager.LocalMessageManager;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
+
+public class MainActivity extends AppCompatActivity implements LocalMessageCallback {
+
+    private ImageView mImage;
 
     private VoiceToTextView mVoiceToTextView;
 
@@ -33,10 +59,18 @@ public class MainActivity extends AppCompatActivity {
 
     private List<CandiItem> mSelectedCandiItems = new LinkedList<>();
 
+    private String lastVoiceText;
+
+    /**
+     * 当前题目
+     */
+    private Subject currentSubject;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mImage = findViewById(R.id.image);
         mVoiceToTextView = findViewById(R.id.voice_to_text_view);
         mAnswerTextViews.add((AppCompatTextView) findViewById(R.id.text1));
         mAnswerTextViews.add((AppCompatTextView) findViewById(R.id.text2));
@@ -55,9 +89,62 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         initData();
+        LocalMessageManager.getInstance().addListener(this);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main, menu);
+        return true;
+    }
+
+    @SuppressLint("CheckResult")
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_check_version) {
+            DownLoadHelper.getInstance()
+                    .checkVersison()
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new Consumer<Boolean>() {
+                        @Override
+                        public void accept(Boolean hasNewVersion) throws Exception {
+                            if (hasNewVersion) {
+                                DownLoadHelper.getInstance().downLoadData();
+                            }
+                        }
+                    }, new Consumer<Throwable>() {
+                        @Override
+                        public void accept(Throwable throwable) throws Exception {
+                            if (BuildConfig.DEBUG) {
+                                showToast(throwable.toString());
+                            }
+                        }
+                    });
+            return true;
+        } else if (id == R.id.first) {
+
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        DownLoadHelper.getInstance().release();
+        LocalMessageManager.getInstance().removeListener(this);
     }
 
     private void initData() {
+        int i = 0;
         for (AppCompatTextView mAnswerTextView : mAnswerTextViews) {
             mAnswerTextView.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -71,27 +158,43 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             });
+            i++;
+            if (i == 4) {
+                mAnswerTextView.addTextChangedListener(new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+                    }
+
+                    @Override
+                    public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+                    }
+
+                    @Override
+                    public void afterTextChanged(Editable s) {
+                        IsGuessed();
+                    }
+                });
+            }
         }
-        List<CandiItem> list = new ArrayList<>();
-        list.add(new CandiItem(0, "非"));
-        list.add(new CandiItem(1, "非"));
-        list.add(new CandiItem(2, "非"));
-        list.add(new CandiItem(3, "非"));
-        list.add(new CandiItem(4, "非"));
-        list.add(new CandiItem(5, "非"));
-        list.add(new CandiItem(6, "非"));
-        list.add(new CandiItem(7, "非"));
-        list.add(new CandiItem(8, "非"));
-        list.add(new CandiItem(9, "非"));
-        list.add(new CandiItem(10, "非"));
-        list.add(new CandiItem(11, "非"));
-        list.add(new CandiItem(12, "非"));
-        list.add(new CandiItem(13, "非"));
-        list.add(new CandiItem(14, "非"));
-        list.add(new CandiItem(15, "非"));
-        list.add(new CandiItem(16, "非"));
-        list.add(new CandiItem(17, "非"));
-        listAdapter = new ListAdapter(this, list);
+        DownLoadHelper.getInstance().init(this);
+        currentSubject = DBHelper.getInstance(this).get(1);
+        if (currentSubject != null) {
+            Glide.with(this).load(currentSubject.getPic()).into(mImage);
+            List<CandiItem> list = new ArrayList<>();
+            i = 0;
+            CandiItem candiItem;
+            for (String s : currentSubject.getText().split(",")) {
+                candiItem = new CandiItem(i, s);
+                list.add(candiItem);
+                i++;
+            }
+            listAdapter = new ListAdapter(this, list);
+        } else {
+            DownLoadHelper.getInstance().downLoadData();
+            listAdapter = new ListAdapter(this, Collections.<CandiItem>emptyList());
+        }
         mCandidates.setAdapter(listAdapter);
         listAdapter.notifyDataSetChanged();
         mVoiceToTextView
@@ -109,16 +212,34 @@ public class MainActivity extends AppCompatActivity {
                 .build();
     }
 
+    private void IsGuessed() {
+        String result = "";
+        for (AppCompatTextView mAnswerTextView : mAnswerTextViews) {
+            result = result.concat(mAnswerTextView.getText().toString());
+        }
+        if (result.equals(currentSubject.getAnswer())) {
+            showToast("恭喜答对");
+        }
+
+    }
+
     /**
      * 将语言转化出来的文本自动填充
      *
      * @param s
      */
     private void textAutoSelected(String s) {
-        if (TextUtils.isEmpty(s)) {
+        if (TextUtils.isEmpty(s) || TextUtils.equals(s, lastVoiceText)) {
             return;
         }
-        mSelectedCandiItems.clear();
+        Log.e("MainActivity", "textAutoSelected() called with: s = [" + s + "]");
+        ListIterator<CandiItem> candiItemListIterator = mSelectedCandiItems.listIterator();
+        while (candiItemListIterator.hasNext()) {
+            candiItemListIterator.next().setSelected(false);
+            candiItemListIterator.remove();
+        }
+        positionSelectedCandiItems();
+        listAdapter.notifyDataSetChanged();
         for (int i = 0; i < s.length() && i < 4; i++) {
             String word = String.valueOf(s.charAt(i));
             for (CandiItem candiItem : listAdapter.items) {
@@ -130,6 +251,14 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
             }
+        }
+        lastVoiceText = s;
+    }
+
+    @Override
+    public void handleMessage(@NonNull LocalMessage localMessage) {
+        if (localMessage.getId() == R.id.timu_download_finished) {
+            initData();
         }
     }
 
@@ -219,4 +348,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void showToast(String string) {
+        Toast.makeText(this, string, Toast.LENGTH_LONG).show();
+    }
 }
