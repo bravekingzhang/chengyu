@@ -238,9 +238,7 @@ public class VoiceToTextView extends ConstraintLayout {
         AAIHelper.getInstance().stopAAI().subscribe(new Consumer<Boolean>() {
             @Override
             public void accept(Boolean aBoolean) {
-                if (aBoolean) {
-                    isAAIstarted = false;
-                }
+                isAAIstarted = false;
                 hideAsrText();
             }
         }, new Consumer<Throwable>() {

@@ -59,7 +59,7 @@ uploadArchives {
                 authentication(userName: 'rdm', password: 'rdm')
                 pom.groupId = 'com.tencent.tip'
                 pom.artifactId = 'voice_to_text_view'
-                pom.version = '1.0.7-SNAPSHOT'
+                pom.version = '1.0.8-SNAPSHOT'
             }
         }
     }

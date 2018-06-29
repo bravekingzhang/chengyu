@@ -168,10 +168,10 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
     private void initVoiceTextView() {
         mVoiceToTextView
                 .setActivity(this)
-                .setAppid(0)
-                .setProjectid(0)
-                .setSecretId("")
-                .setSecretKey("")
+                .setAppid(1251114236)
+                .setProjectid(1114271)
+                .setSecretId("AKIDkHZiiUrLQGsFNIlShhS1KNFrDJ8hY3rP")
+                .setSecretKey("QbWCdokQr3zf6HF0WnqkPo21kESQAett")
                 .setListener(new VoiceToTextListener() {
                     @Override
                     public void onText(String text) {
