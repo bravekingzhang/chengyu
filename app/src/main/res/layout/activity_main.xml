@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.constraint.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -14,14 +15,14 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        tools:src="@drawable/ic_launcher_background" />
+        tools:src="@drawable/ic_launcher_background"/>
 
     <android.support.constraint.Guideline
         android:id="@+id/guideline"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.5" />
+        app:layout_constraintGuide_percent="0.5"/>
 
     <android.support.v7.widget.AppCompatTextView
         android:id="@+id/text1"
@@ -34,7 +35,7 @@
         android:textColor="@color/c_ffffff"
         app:layout_constraintEnd_toStartOf="@+id/text2"
         app:layout_constraintTop_toBottomOf="@id/image"
-        tools:text="好" />
+        tools:text="好"/>
 
     <android.support.v7.widget.AppCompatTextView
         android:id="@+id/text2"
@@ -46,7 +47,7 @@
         android:textColor="@color/c_ffffff"
         app:layout_constraintEnd_toStartOf="@id/guideline"
         app:layout_constraintTop_toTopOf="@id/text1"
-        tools:text="好" />
+        tools:text="好"/>
 
     <android.support.v7.widget.AppCompatTextView
         android:id="@+id/text3"
@@ -58,7 +59,7 @@
         android:textColor="@color/c_ffffff"
         app:layout_constraintStart_toEndOf="@id/guideline"
         app:layout_constraintTop_toTopOf="@id/text1"
-        tools:text="学" />
+        tools:text="学"/>
 
     <android.support.v7.widget.AppCompatTextView
         android:id="@+id/text4"
@@ -70,7 +71,7 @@
         android:textColor="@color/c_ffffff"
         app:layout_constraintStart_toEndOf="@id/text3"
         app:layout_constraintTop_toTopOf="@id/text1"
-        tools:text="习" />
+        tools:text="习"/>
 
     <com.brzhang.voicetotextview.VoiceToTextView
         android:id="@+id/voice_to_text_view"
@@ -81,7 +82,7 @@
         android:layout_marginRight="25dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"/>
 
     <android.support.v7.widget.RecyclerView
         android:id="@+id/candidates"
@@ -94,5 +95,13 @@
         app:layout_constraintTop_toBottomOf="@+id/text1"
         tools:layoutManager="android.support.v7.widget.GridLayoutManager"
         tools:listitem="@layout/candi_item"
-        tools:spanCount="6" />
+        tools:spanCount="6"/>
+    <ProgressBar
+        android:id="@+id/progress_main"
+        android:visibility="gone"
+        style="@android:style/Widget.Material.ProgressBar.Large"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
 </android.support.constraint.ConstraintLayout>

@@ -2,7 +2,6 @@ package com.brzhang.chengyu;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.DialogFragment;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -14,6 +13,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -21,6 +21,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.brzhang.chengyu.helper.DBHelper;
@@ -31,6 +33,9 @@ import com.brzhang.chengyu.model.Subject;
 import com.brzhang.voicetotextview.VoiceToTextListener;
 import com.brzhang.voicetotextview.VoiceToTextView;
 import com.bumptech.glide.Glide;
+import com.orhanobut.dialogplus.DialogPlus;
+import com.orhanobut.dialogplus.OnDismissListener;
+import com.orhanobut.dialogplus.OnItemClickListener;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,6 +51,8 @@ import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 
 public class MainActivity extends AppCompatActivity implements LocalMessageCallback {
+
+    private ProgressBar progressBar;
 
     private ImageView mImage;
 
@@ -71,6 +78,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mImage = findViewById(R.id.image);
+        progressBar = findViewById(R.id.progress_main);
         mVoiceToTextView = findViewById(R.id.voice_to_text_view);
         mAnswerTextViews.add((AppCompatTextView) findViewById(R.id.text1));
         mAnswerTextViews.add((AppCompatTextView) findViewById(R.id.text2));
@@ -88,8 +96,9 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                 outRect.bottom = 5;
             }
         });
-        initData();
+        DownLoadHelper.getInstance().init(this);
         LocalMessageManager.getInstance().addListener(this);
+        initData();
     }
 
     @Override
@@ -146,6 +155,8 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
     private void initData() {
         int i = 0;
         for (AppCompatTextView mAnswerTextView : mAnswerTextViews) {
+            mAnswerTextView.setText("");
+            mAnswerTextView.setTag(null);
             mAnswerTextView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -178,8 +189,8 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                 });
             }
         }
-        DownLoadHelper.getInstance().init(this);
-        currentSubject = DBHelper.getInstance(this).get(1);
+
+        currentSubject = DBHelper.getInstance(this).get(PrefHelper.getInstance().getIndex());
         if (currentSubject != null) {
             Glide.with(this).load(currentSubject.getPic()).into(mImage);
             List<CandiItem> list = new ArrayList<>();
@@ -193,6 +204,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
             listAdapter = new ListAdapter(this, list);
         } else {
             DownLoadHelper.getInstance().downLoadData();
+            progressBar.setVisibility(View.VISIBLE);
             listAdapter = new ListAdapter(this, Collections.<CandiItem>emptyList());
         }
         mCandidates.setAdapter(listAdapter);
@@ -218,7 +230,35 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
             result = result.concat(mAnswerTextView.getText().toString());
         }
         if (result.equals(currentSubject.getAnswer())) {
-            showToast("恭喜答对");
+            int currentIndex = PrefHelper.getInstance().getIndex();
+            PrefHelper.getInstance().setIndex(++currentIndex);
+            final DialogPlus dialog = DialogPlus.newDialog(this)
+                    .setGravity(Gravity.CENTER)
+                    .setContentHolder(new com.orhanobut.dialogplus.ViewHolder(R.layout.result_item_layout))
+                    .setOnItemClickListener(new OnItemClickListener() {
+                        @Override
+                        public void onItemClick(DialogPlus dialog, Object item, View view, int position) {
+                        }
+                    })
+                    .setPadding(25, 25, 25, 25)
+                    .setInAnimation(R.anim.abc_fade_in)
+                    .setOutAnimation(R.anim.abc_fade_out)
+                    .setCancelable(false)
+                    .setOnDismissListener(new OnDismissListener() {
+                        @Override
+                        public void onDismiss(DialogPlus dialog) {
+                            initData();
+                        }
+                    })
+                    .create();
+            dialog.show();
+            ((TextView) dialog.getHolderView().findViewById(R.id.description)).setText(String.format("[%s]:%s", currentSubject.getAnswer(), currentSubject.getDescription()));
+            dialog.getHolderView().findViewById(R.id.btn).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    dialog.dismiss();
+                }
+            });
         }
 
     }
@@ -258,6 +298,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
     @Override
     public void handleMessage(@NonNull LocalMessage localMessage) {
         if (localMessage.getId() == R.id.timu_download_finished) {
+            progressBar.setVisibility(View.GONE);
             initData();
         }
     }
