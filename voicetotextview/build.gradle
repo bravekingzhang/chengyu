@@ -3,8 +3,6 @@ apply plugin: 'maven'
 android {
     compileSdkVersion 27
 
-
-
     defaultConfig {
         minSdkVersion 18
         targetSdkVersion 27
@@ -15,13 +13,25 @@ android {
 
     }
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
     buildTypes {
+        debug{
+            ndk {
+                abiFilters "armeabi", "armeabi-v7a"
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            ndk {
+                abiFilters "armeabi", "armeabi-v7a"
+            }
         }
     }
-
 }
 
 dependencies {
@@ -45,11 +55,11 @@ dependencies {
 uploadArchives {
     repositories {
         mavenDeployer {
-            repository(url: 'http://maven.oa.com/nexus/content/repositories/thirdparty-snapshots'){
+            repository(url: 'http://maven.oa.com/nexus/content/repositories/thirdparty-snapshots') {
                 authentication(userName: 'rdm', password: 'rdm')
                 pom.groupId = 'com.tencent.tip'
                 pom.artifactId = 'voice_to_text_view'
-                pom.version = '1.0.2-SNAPSHOT'
+                pom.version = '1.0.6-SNAPSHOT'
             }
         }
     }
