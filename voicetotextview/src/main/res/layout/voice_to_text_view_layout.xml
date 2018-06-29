@@ -10,6 +10,8 @@
         android:id="@+id/text"
         android:layout_width="0dp"
         android:layout_height="50dp"
+        android:layout_marginBottom="5dp"
+        android:layout_marginTop="5dp"
         android:background="@drawable/ars_text_bg"
         android:gravity="center"
         android:textColor="#ffffff"
@@ -31,10 +33,12 @@
         app:layout_constraintTop_toTopOf="@+id/text"
         tools:visibility="visible" />
 
-    <android.support.design.widget.FloatingActionButton
+    <ImageView
         android:id="@+id/btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:background="@drawable/ars_btn_bg"
+        android:padding="10dp"
         android:src="@drawable/ic_aai"
         android:tint="#ffffff"
         app:layout_constraintBottom_toBottomOf="parent"

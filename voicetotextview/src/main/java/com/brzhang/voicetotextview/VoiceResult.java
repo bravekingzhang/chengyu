@@ -12,4 +12,12 @@ public class VoiceResult {
         this.stateRecordOn = stateRecordOn;
         this.text = text;
     }
+
+    @Override
+    public String toString() {
+        return "VoiceResult{" +
+                "stateRecordOn=" + stateRecordOn +
+                ", text='" + text + '\'' +
+                '}';
+    }
 }

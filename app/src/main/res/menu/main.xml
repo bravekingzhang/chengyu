@@ -8,10 +8,9 @@
         android:orderInCategory="100"
         android:title="更新题库"
         app:showAsAction="never" />
-
     <item
-        android:id="@+id/first"
+        android:id="@+id/action_achievement"
         android:orderInCategory="100"
-        android:title="第一题"
+        android:title="我的成就"
         app:showAsAction="never" />
 </menu>

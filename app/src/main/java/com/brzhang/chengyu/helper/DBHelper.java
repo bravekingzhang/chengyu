@@ -34,6 +34,8 @@ public class DBHelper {
 
     /**
      * https://stackoverflow.com/questions/48028734/adding-a-list-in-realm-db-using-insert-not-working
+     * <p>
+     * 换greedDao，好用很多
      *
      * @param list
      */
@@ -53,6 +55,15 @@ public class DBHelper {
         } else {
             return null;
         }
+    }
+
+    /**
+     * 总数
+     *
+     * @return
+     */
+    public long count() {
+        return subjectDao.count();
     }
 
 }

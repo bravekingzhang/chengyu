@@ -10,7 +10,9 @@ import android.support.design.widget.FloatingActionButton;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,6 +20,8 @@ import android.widget.Toast;
 import com.tbruyelle.rxpermissions2.Permission;
 import com.tbruyelle.rxpermissions2.RxPermissions;
 import com.tencent.aai.exception.ClientException;
+
+import java.util.concurrent.locks.ReentrantLock;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
@@ -29,7 +33,7 @@ public class VoiceToTextView extends ConstraintLayout {
     private RxPermissions rxPermissions;
     private boolean isAAIstarted;
     private TextView text;
-    private FloatingActionButton btn;
+    private ImageView btn;
     private Context mContext;
     private ProgressBar progressBar;
 
@@ -38,6 +42,8 @@ public class VoiceToTextView extends ConstraintLayout {
     private String secretId = "";
     private String secretKey = "";
     private boolean mAAIHelperAvailable;
+
+    private ReentrantLock lock = new ReentrantLock();
 
     public VoiceToTextView setActivity(Activity activity) {
         rxPermissions = new RxPermissions(activity);
@@ -116,15 +122,14 @@ public class VoiceToTextView extends ConstraintLayout {
             @Override
             public void onClick(View v) {
                 if (mAAIHelperAvailable) {
-                    showASrText();
-                    textRecognition();
+                    openAsr();
                 }
             }
         });
         text.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                hideAsrText();
+                //点击强制关闭
                 stopAAI();
             }
         });
@@ -148,6 +153,21 @@ public class VoiceToTextView extends ConstraintLayout {
         });
     }
 
+    /**
+     * 开启语言识别
+     */
+    public void openAsr() {
+        showASrText();
+        textRecognition();
+    }
+
+    /**
+     * 关闭语言识别
+     */
+    public void closeArs() {
+        stopAAI();
+    }
+
     @SuppressLint("CheckResult")
     private void textRecognition() {
         if (isAAIstarted) {
@@ -161,6 +181,7 @@ public class VoiceToTextView extends ConstraintLayout {
      * 显示实时语音转文字的文本框
      */
     private void showASrText() {
+        progressBar.setVisibility(VISIBLE);
         text.setText("");
         CircularAnim.show(text).triggerView(btn).go();
         CircularAnim.hide(btn).go();
@@ -170,9 +191,19 @@ public class VoiceToTextView extends ConstraintLayout {
      * 隐藏实时语音转文字的文本框
      */
     private void hideAsrText() {
-        Point triggerPoint = new Point(text.getRight() - btn.getWidth() / 2, text.getHeight() / 2);
-        CircularAnim.hide(text).triggerPoint(triggerPoint).go();
-        CircularAnim.show(btn).go();
+        if (text.getVisibility() == VISIBLE && !lock.isLocked() && lock.tryLock()) {
+            progressBar.setVisibility(GONE);
+            Point triggerPoint = new Point(text.getRight() - btn.getWidth() / 2, text.getHeight() / 2);
+            CircularAnim.hide(text).triggerPoint(triggerPoint).go(new CircularAnim.OnAnimationEndListener() {
+                @Override
+                public void onAnimationEnd() {
+                    if (lock.isLocked()) {
+                        lock.unlock();
+                    }
+                }
+            });
+            CircularAnim.show(btn).go();
+        }
     }
 
     @SuppressLint("CheckResult")
@@ -185,19 +216,17 @@ public class VoiceToTextView extends ConstraintLayout {
                     @Override
                     public void accept(VoiceResult result) {
                         if (result.stateRecordOn) {
-                            progressBar.setVisibility(VISIBLE);
+                            Log.e("VoiceToTextView", "accept() called with: result = [" + result + "]");
                             text.setText(result.text);
                         } else {
-                            progressBar.setVisibility(GONE);
+                            //超时自动关闭
                             stopAAI();
-                            hideAsrText();
                         }
                     }
                 }, new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable throwable) {
-                        progressBar.setVisibility(GONE);
-                        hideAsrText();
+                        //失败字段关闭
                         stopAAI();
                         showToast(throwable.toString());
                     }
@@ -212,14 +241,16 @@ public class VoiceToTextView extends ConstraintLayout {
                 if (aBoolean) {
                     isAAIstarted = false;
                 }
+                hideAsrText();
             }
         }, new Consumer<Throwable>() {
             @Override
             public void accept(Throwable throwable) {
+                hideAsrText();
             }
         });
-        hideAsrText();
     }
+
 
     private void showToast(String msg) {
         Toast.makeText(mContext, msg, Toast.LENGTH_LONG).show();

@@ -13,13 +13,13 @@ android {
 
     }
 
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
+//    compileOptions {
+//        sourceCompatibility JavaVersion.VERSION_1_8
+//        targetCompatibility JavaVersion.VERSION_1_8
+//    }
 
     buildTypes {
-        debug{
+        debug {
             ndk {
                 abiFilters "armeabi", "armeabi-v7a"
             }
@@ -59,7 +59,7 @@ uploadArchives {
                 authentication(userName: 'rdm', password: 'rdm')
                 pom.groupId = 'com.tencent.tip'
                 pom.artifactId = 'voice_to_text_view'
-                pom.version = '1.0.6-SNAPSHOT'
+                pom.version = '1.0.7-SNAPSHOT'
             }
         }
     }

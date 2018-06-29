@@ -46,5 +46,6 @@ dependencies {
     implementation 'org.greenrobot:greendao:3.2.2' // add library
     implementation 'net.zetetic:android-database-sqlcipher:3.5.7@aar'
     implementation 'com.orhanobut:dialogplus:1.11@aar'
+    implementation 'com.airbnb.android:lottie:2.5.5'
 
 }

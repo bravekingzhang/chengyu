@@ -101,7 +101,7 @@ public class AAIHelper {
     public Flowable<VoiceResult> startAAI() {
         if (aaiClient != null) {
             if (!aaiClient.isAudioRecognizeIdle()) {
-                return Flowable.empty();
+                return Flowable.error(new Exception("请不要频繁点击"));
             }
         }
         return Flowable.create(new FlowableOnSubscribe<VoiceResult>() {
@@ -151,14 +151,12 @@ public class AAIHelper {
                         @Override
                         public void onStartRecord(AudioRecognizeRequest request) {
                             // 开始录音
-                            Log.e("AAIHelper", "onStartRecord() called with: request = [" + request + "]");
                             emitter.onNext(new VoiceResult(true, ""));
                         }
 
                         @Override
                         public void onStopRecord(AudioRecognizeRequest request) {
                             // 结束录音
-                            Log.e("AAIHelper", "onStopRecord() called with: request = [" + request + "]");
                             emitter.onNext(new VoiceResult(false, ""));
 //                            emitter.onComplete();
                         }
@@ -221,8 +219,8 @@ public class AAIHelper {
         return Flowable.create(new FlowableOnSubscribe<Boolean>() {
             @Override
             public void subscribe(FlowableEmitter<Boolean> emitter) throws Exception {
-                aaiClient.stopAudioRecognize(requestId);
-                emitter.onNext(true);
+                boolean isReleaseSuccess = aaiClient.stopAudioRecognize(requestId);
+                emitter.onNext(isReleaseSuccess);
                 emitter.onComplete();
             }
         }, BackpressureStrategy.BUFFER);
