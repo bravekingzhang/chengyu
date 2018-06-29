@@ -339,8 +339,6 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
          */
         if (result.length() >= 3 && (mCurrentSubject.getAnswer().startsWith(result) || mCurrentSubject.getAnswer().endsWith(result))) {
             isGuessed = true;
-            int currentIndex = PrefHelper.getInstance().getIndex();
-            PrefHelper.getInstance().setIndex(++currentIndex);
             final DialogPlus dialog = DialogPlus.newDialog(this)
                     .setGravity(Gravity.CENTER)
                     .setContentHolder(new com.orhanobut.dialogplus.ViewHolder(R.layout.result_item_layout))
@@ -356,6 +354,8 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                     .setOnDismissListener(new OnDismissListener() {
                         @Override
                         public void onDismiss(DialogPlus dialog) {
+                            int currentIndex = PrefHelper.getInstance().getIndex();
+                            PrefHelper.getInstance().setIndex(++currentIndex);
                             initData();
                         }
                     })
