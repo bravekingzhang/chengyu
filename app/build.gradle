@@ -45,5 +45,6 @@ dependencies {
     implementation 'eu.inloop:localmessagemanager:0.1.7'
     implementation 'org.greenrobot:greendao:3.2.2' // add library
     implementation 'net.zetetic:android-database-sqlcipher:3.5.7@aar'
+    implementation 'com.orhanobut:dialogplus:1.11@aar'
 
 }
