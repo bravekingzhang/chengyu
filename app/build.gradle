@@ -19,6 +19,15 @@ android {
 
         }
     }
+    signingConfigs {
+        release {
+            storeFile file('yours.jks')
+            keyAlias 'yours'
+            keyPassword 'yourpass'
+            storePassword 'yourpass'
+            v2SigningEnabled true
+        }
+    }
 
 }
 
