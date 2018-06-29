@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Rect;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.support.annotation.WorkerThread;
 import android.support.v7.app.AppCompatActivity;
@@ -27,6 +26,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.airbnb.lottie.LottieAnimationView;
 import com.brzhang.chengyu.helper.DBHelper;
 import com.brzhang.chengyu.helper.DownLoadHelper;
 import com.brzhang.chengyu.helper.PrefHelper;
@@ -39,8 +39,6 @@ import com.orhanobut.dialogplus.DialogPlus;
 import com.orhanobut.dialogplus.OnDismissListener;
 import com.orhanobut.dialogplus.OnItemClickListener;
 
-import org.reactivestreams.Publisher;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -50,15 +48,8 @@ import java.util.ListIterator;
 import eu.inloop.localmessagemanager.LocalMessage;
 import eu.inloop.localmessagemanager.LocalMessageCallback;
 import eu.inloop.localmessagemanager.LocalMessageManager;
-import io.reactivex.BackpressureStrategy;
-import io.reactivex.Flowable;
-import io.reactivex.FlowableEmitter;
-import io.reactivex.FlowableOnSubscribe;
-import io.reactivex.ObservableSource;
-import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
-import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 
@@ -66,26 +57,39 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
 
     private ProgressBar progressBar;
 
-    private ImageView mImage;
+    private ImageView mSubjectImage;
 
     private TextView mSubjectIndex;
 
     private VoiceToTextView mVoiceToTextView;
 
-    private List<AppCompatTextView> mAnswerTextViews = new LinkedList<>();
-
-    private RecyclerView mCandidates;
-
-    private ListAdapter listAdapter;
-
-    private List<CandiItem> mSelectedCandiItems = new LinkedList<>();
-
-    private String lastVoiceText;
+    /**
+     * 四个填空题
+     */
+    private List<AppCompatTextView> mTextSpaceViews = new LinkedList<>();
 
     /**
-     * 当前题目
+     * 已选择到的文字
      */
-    private Subject currentSubject;
+    private List<CandiItem> mSelectedCandiItems = new LinkedList<>();
+
+    /**
+     * 一堆文字
+     */
+    private RecyclerView mCandidates;
+
+    private ListAdapter mListAdapter;
+
+
+    /**
+     * 因为语音识别会连续不断像这边推送识别出的句子，因此，为了减少不必要的验证，做一个保存
+     */
+    private String mLastVoiceText;
+
+    /**
+     * 当前题目信息
+     */
+    private Subject mCurrentSubject;
 
     /**
      * 察并且缓存语言转换为文本，一个一个的处理
@@ -98,19 +102,18 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
      */
     private boolean isGuessed;
 
-    @SuppressLint("CheckResult")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mImage = findViewById(R.id.image);
+        mSubjectImage = findViewById(R.id.image);
         mSubjectIndex = findViewById(R.id.subject_num);
         progressBar = findViewById(R.id.progress_main);
         mVoiceToTextView = findViewById(R.id.voice_to_text_view);
-        mAnswerTextViews.add((AppCompatTextView) findViewById(R.id.text1));
-        mAnswerTextViews.add((AppCompatTextView) findViewById(R.id.text2));
-        mAnswerTextViews.add((AppCompatTextView) findViewById(R.id.text3));
-        mAnswerTextViews.add((AppCompatTextView) findViewById(R.id.text4));
+        mTextSpaceViews.add((AppCompatTextView) findViewById(R.id.text1));
+        mTextSpaceViews.add((AppCompatTextView) findViewById(R.id.text2));
+        mTextSpaceViews.add((AppCompatTextView) findViewById(R.id.text3));
+        mTextSpaceViews.add((AppCompatTextView) findViewById(R.id.text4));
         mCandidates = findViewById(R.id.candidates);
         mCandidates.setLayoutManager(new GridLayoutManager(this, 6));
         mCandidates.addItemDecoration(new RecyclerView.ItemDecoration() {
@@ -123,21 +126,25 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                 outRect.bottom = 5;
             }
         });
-        mVoiceToTextView
-                .setActivity(this)
-                .setAppid(1251114236)
-                .setProjectid(1114271)
-                .setSecretId("AKIDkHZiiUrLQGsFNIlShhS1KNFrDJ8hY3rP")
-                .setSecretKey("QbWCdokQr3zf6HF0WnqkPo21kESQAett")
-                .setListener(new VoiceToTextListener() {
-                    @Override
-                    public void onText(String text) {
-                        if (!TextUtils.isEmpty(text) && !TextUtils.equals(text, lastVoiceText)) {
-                            pSubject.onNext(text);
-                        }
-                    }
-                })
-                .build();
+        initVoiceTextView();
+        initPublishSubject();
+        DownLoadHelper.getInstance().init(this);
+        LocalMessageManager.getInstance().addListener(this);
+        initData();
+    }
+
+    private void initData() {
+        isGuessed = false;
+        mVoiceToTextView.closeArs();
+        init4TextSpace();
+        setupQuestion();
+    }
+
+    /**
+     * 初始化PublishSubject，为了接受并且处理识别出来的文本，注意，这里在异步线程中执行，为什么，请看后面
+     */
+    @SuppressLint("CheckResult")
+    private void initPublishSubject() {
         pSubject = PublishSubject.create();
         pSubject.subscribeOn(Schedulers.io())
                 .observeOn(Schedulers.io())
@@ -147,10 +154,33 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                         Log.e("MainActivity", "accept() called with: s = [" + s + "]");
                         textAutoSelected(s);
                     }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        showToast(throwable.toString());
+                    }
                 });
-        DownLoadHelper.getInstance().init(this);
-        LocalMessageManager.getInstance().addListener(this);
-        initData();
+    }
+
+    /**
+     * 初始化语音转文本控件，大哥们可以用自己的id和key，setSecretKey建议在服务器端生成，别像我这样写在这里，不安全
+     */
+    private void initVoiceTextView() {
+        mVoiceToTextView
+                .setActivity(this)
+                .setAppid(1251114236)
+                .setProjectid(1114271)
+                .setSecretId("AKIDkHZiiUrLQGsFNIlShhS1KNFrDJ8hY3rP")
+                .setSecretKey("QbWCdokQr3zf6HF0WnqkPo21kESQAett")
+                .setListener(new VoiceToTextListener() {
+                    @Override
+                    public void onText(String text) {
+                        if (!TextUtils.isEmpty(text) && !TextUtils.equals(text, mLastVoiceText)) {
+                            pSubject.onNext(text);
+                        }
+                    }
+                })
+                .build();
     }
 
     @Override
@@ -160,7 +190,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
         return true;
     }
 
-    @SuppressLint("CheckResult")
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
@@ -170,31 +200,39 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_check_version) {
-            DownLoadHelper.getInstance()
-                    .checkVersison()
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(new Consumer<Boolean>() {
-                        @Override
-                        public void accept(Boolean hasNewVersion) throws Exception {
-                            if (hasNewVersion) {
-                                DownLoadHelper.getInstance().downLoadData();
-                            }
-                        }
-                    }, new Consumer<Throwable>() {
-                        @Override
-                        public void accept(Throwable throwable) throws Exception {
-                            if (BuildConfig.DEBUG) {
-                                showToast(throwable.toString());
-                            }
-                        }
-                    });
+            checkVersionIfNeedDownSubject();
             return true;
         } else if (id == R.id.action_achievement) {
             showAchievement();
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * 检查更新，一旦有新版本，启动任务更新，这里使用DownloadManager来下载，方便一会扩展较大的文件
+     */
+    @SuppressLint("CheckResult")
+    private void checkVersionIfNeedDownSubject() {
+        DownLoadHelper.getInstance()
+                .checkVersison()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<Boolean>() {
+                    @Override
+                    public void accept(Boolean hasNewVersion) throws Exception {
+                        if (hasNewVersion) {
+                            DownLoadHelper.getInstance().downLoadData();
+                        }
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        if (BuildConfig.DEBUG) {
+                            showToast(throwable.toString());
+                        }
+                    }
+                });
     }
 
     @Override
@@ -204,12 +242,56 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
         LocalMessageManager.getInstance().removeListener(this);
     }
 
+
+    /**
+     * 显示题目
+     */
     @SuppressLint("DefaultLocale")
-    private void initData() {
-        isGuessed = false;
-        mVoiceToTextView.closeArs();
+    private void setupQuestion() {
         int i = 0;
-        for (AppCompatTextView mAnswerTextView : mAnswerTextViews) {
+        if (isPassAllSubject()) {
+            showAchievement();
+            return;
+        }
+        mCurrentSubject = DBHelper.getInstance(this).get(PrefHelper.getInstance().getIndex());
+        if (mCurrentSubject != null) {
+            mSubjectIndex.setText(String.format("%d关", PrefHelper.getInstance().getIndex()));
+            Glide.with(this).load(mCurrentSubject.getPic()).into(mSubjectImage);
+            List<CandiItem> list = new ArrayList<>();
+            CandiItem candiItem;
+            for (String s : mCurrentSubject.getText().split(",")) {
+                candiItem = new CandiItem(i, s);
+                list.add(candiItem);
+                i++;
+            }
+            mListAdapter = new ListAdapter(this, list);
+        } else {
+            DownLoadHelper.getInstance().downLoadData();
+            progressBar.setVisibility(View.VISIBLE);
+            for (AppCompatTextView mAnswerTextView : mTextSpaceViews) {
+                mAnswerTextView.setVisibility(View.GONE);
+            }
+            mListAdapter = new ListAdapter(this, Collections.<CandiItem>emptyList());
+        }
+        mCandidates.setAdapter(mListAdapter);
+        mListAdapter.notifyDataSetChanged();
+    }
+
+    /**
+     * 是否已经通关
+     *
+     * @return
+     */
+    private boolean isPassAllSubject() {
+        return PrefHelper.getInstance().getIndex() != 1 && PrefHelper.getInstance().getIndex() > DBHelper.getInstance(this).count();
+    }
+
+    /**
+     * 初始化4个填空及待选文字的状态
+     */
+    private void init4TextSpace() {
+        int i = 0;
+        for (AppCompatTextView mAnswerTextView : mTextSpaceViews) {
             mAnswerTextView.setVisibility(View.VISIBLE);
             mAnswerTextView.setText("");
             mAnswerTextView.setTag(null);
@@ -220,13 +302,13 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                         CandiItem candiItem = (CandiItem) v.getTag();
                         candiItem.setSelected(false);
                         mSelectedCandiItems.remove(candiItem);
-                        listAdapter.notifyItemChanged(candiItem.getIndex());
+                        mListAdapter.notifyItemChanged(candiItem.getIndex());
                         positionSelectedCandiItems();
                     }
                 }
             });
             i++;
-            if (i == 4) {
+            if (i == 3 || i == 4) {
                 mAnswerTextView.addTextChangedListener(new TextWatcher() {
                     @Override
                     public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -245,40 +327,17 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                 });
             }
         }
-        currentSubject = DBHelper.getInstance(this).get(PrefHelper.getInstance().getIndex());
-        if (currentSubject != null) {
-            mSubjectIndex.setText(String.format("%d关", PrefHelper.getInstance().getIndex()));
-            Glide.with(this).load(currentSubject.getPic()).into(mImage);
-            List<CandiItem> list = new ArrayList<>();
-            i = 0;
-            CandiItem candiItem;
-            for (String s : currentSubject.getText().split(",")) {
-                candiItem = new CandiItem(i, s);
-                list.add(candiItem);
-                i++;
-            }
-            listAdapter = new ListAdapter(this, list);
-        } else {
-            DownLoadHelper.getInstance().downLoadData();
-            progressBar.setVisibility(View.VISIBLE);
-            for (AppCompatTextView mAnswerTextView : mAnswerTextViews) {
-                mAnswerTextView.setVisibility(View.GONE);
-            }
-            listAdapter = new ListAdapter(this, Collections.<CandiItem>emptyList());
-        }
-        mCandidates.setAdapter(listAdapter);
-        listAdapter.notifyDataSetChanged();
     }
 
     private void IsGuessed() {
         String result = "";
-        for (AppCompatTextView mAnswerTextView : mAnswerTextViews) {
+        for (AppCompatTextView mAnswerTextView : mTextSpaceViews) {
             result = result.concat(mAnswerTextView.getText().toString());
         }
         /**
          * 降低游戏难度，说对3个以上的字就算对啦，因为有人发音不标准
          */
-        if (result.length() >= 3 && (currentSubject.getAnswer().startsWith(result) || currentSubject.getAnswer().endsWith(result))) {
+        if (result.length() >= 3 && (mCurrentSubject.getAnswer().startsWith(result) || mCurrentSubject.getAnswer().endsWith(result))) {
             isGuessed = true;
             int currentIndex = PrefHelper.getInstance().getIndex();
             PrefHelper.getInstance().setIndex(++currentIndex);
@@ -302,7 +361,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                     })
                     .create();
             dialog.show();
-            ((TextView) dialog.getHolderView().findViewById(R.id.description)).setText(String.format("[%s]:%s", currentSubject.getAnswer(), currentSubject.getDescription()));
+            ((TextView) dialog.getHolderView().findViewById(R.id.description)).setText(String.format("[%s]:%s", mCurrentSubject.getAnswer(), mCurrentSubject.getDescription()));
             dialog.getHolderView().findViewById(R.id.btn).setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -318,14 +377,25 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
      */
     @SuppressLint("DefaultLocale")
     private void showAchievement() {
+        boolean isPassAllTheSubject = isPassAllSubject();
         DialogPlus dialog = DialogPlus.newDialog(this)
                 .setGravity(Gravity.CENTER)
                 .setContentHolder(new com.orhanobut.dialogplus.ViewHolder(R.layout.user_achievement_layout))
                 .setCancelable(true)
                 .create();
-        ((TextView) dialog.getHolderView().findViewById(R.id.description)).setText(String.format("你已通关%d，总关数%d", PrefHelper.getInstance().getIndex(), DBHelper.getInstance(this).count()));
+        if (isPassAllTheSubject) {
+            LottieAnimationView animationView = dialog.getHeaderView().findViewById(R.id.animation_view);
+            animationView.setAnimation(R.raw.done);
+            animationView.playAnimation();
+            TextView description = dialog.getHolderView().findViewById(R.id.description);
+            description.setTextColor(getResources().getColor(R.color.colorAccent));
+            description.setText("恭喜通关666");
+        } else {
+            ((TextView) dialog.getHolderView().findViewById(R.id.description)).setText(String.format("你已通关%d，总关数%d", PrefHelper.getInstance().getIndex(), DBHelper.getInstance(this).count()));
+        }
         dialog.show();
     }
+
 
     /**
      * 将语言转化出来的文本自动填充,
@@ -336,7 +406,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
      * <p>
      * 只能想办法丢在异步线程，但是这样子如果不加控制，将会出现多个线程发送消息，操控UI线程的ui控件，填字将会混乱不堪
      * <p>
-     * 因此，我们想到了，可以将这些tobePosition进行buffer起来，一个一个的来处理
+     * 因此，我们想到了，可以将这些tobePosition进行buffer起来，一个一个的来处理,因此rxjava在这里使用是一种比较好的选择
      *
      * @param tobePosition
      */
@@ -354,13 +424,13 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
             @Override
             public void run() {
                 positionSelectedCandiItems();
-                listAdapter.notifyDataSetChanged();
+                mListAdapter.notifyDataSetChanged();
             }
         });
-        for (int i = 0; i < currentSubject.getAnswer().length() && i < 4; i++) {
-            String word = String.valueOf(currentSubject.getAnswer().charAt(i));
+        for (int i = 0; i < mCurrentSubject.getAnswer().length() && i < 4; i++) {
+            String word = String.valueOf(mCurrentSubject.getAnswer().charAt(i));
             if (tobePosition.contains(word)) {
-                for (final CandiItem candiItem : listAdapter.items) {
+                for (final CandiItem candiItem : mListAdapter.items) {
                     if (!candiItem.isSelected() && candiItem.getItem().equals(word)) {
                         candiItem.setSelected(true);
                         mSelectedCandiItems.add(candiItem);
@@ -369,7 +439,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                             @Override
                             public void run() {
                                 positionSelectedCandiItems();
-                                listAdapter.notifyItemChanged(candiItem.getIndex());
+                                mListAdapter.notifyItemChanged(candiItem.getIndex());
                             }
                         });
                         break;
@@ -379,7 +449,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                 mSelectedCandiItems.add(new CandiItem(i, ""));
             }
         }
-        lastVoiceText = tobePosition;
+        mLastVoiceText = tobePosition;
     }
 
     @Override
@@ -428,7 +498,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
                         candiItem.setSelected(true);
                         mSelectedCandiItems.add(candiItem);
                         positionSelectedCandiItems();
-                        listAdapter.notifyItemChanged(candiItem.getIndex());
+                        mListAdapter.notifyItemChanged(candiItem.getIndex());
                     }
 
                 }
@@ -445,14 +515,14 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
      * 用选到的词来填空
      */
     private void positionSelectedCandiItems() {
-        for (AppCompatTextView mAnswerTextView : mAnswerTextViews) {
+        for (AppCompatTextView mAnswerTextView : mTextSpaceViews) {
             mAnswerTextView.setText("");
             mAnswerTextView.setTag(null);
         }
         int index = 0;
         for (CandiItem mSelectedCandiItem : mSelectedCandiItems) {
-            mAnswerTextViews.get(index).setText(mSelectedCandiItem.getItem());
-            mAnswerTextViews.get(index).setTag(mSelectedCandiItem);
+            mTextSpaceViews.get(index).setText(mSelectedCandiItem.getItem());
+            mTextSpaceViews.get(index).setTag(mSelectedCandiItem);
             index++;
         }
     }
