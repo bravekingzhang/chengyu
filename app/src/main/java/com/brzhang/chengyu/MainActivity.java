@@ -290,6 +290,7 @@ public class MainActivity extends AppCompatActivity implements LocalMessageCallb
      * 初始化4个填空及待选文字的状态
      */
     private void init4TextSpace() {
+        mSelectedCandiItems.clear();
         int i = 0;
         for (AppCompatTextView mAnswerTextView : mTextSpaceViews) {
             mAnswerTextView.setVisibility(View.VISIBLE);
